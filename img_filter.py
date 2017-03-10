@@ -1,6 +1,10 @@
 import numpy as np
 import cv2
 
+#=====================================
+# Lane finding related
+#=====================================
+
 def undistort(image, K, d):
     """
     Camera distortion correction.
@@ -104,3 +108,25 @@ def filter_fusion(luma_bin, sat_bin, grad_bin, mentor_bin):
 
     return binary
 
+
+#=====================================
+# Vehicle detection - SVM classifier related
+#=====================================
+
+def convert_color(img, conv='RGB2YCrCb'):
+    # apply color conversion if other than 'RGB'
+    if conv == 'RGB2YCrCb':
+        return cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
+    elif conv == 'BGR2YCrCb':
+        return cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
+    elif conv == 'RGB2LUV':
+        return cv2.cvtColor(img, cv2.COLOR_RGB2LUV)
+    elif conv == 'RGB2HSV':
+        return cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+    elif conv == 'RGB2HLS':
+        return cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
+    elif conv == 'RGB2YUV':
+        return cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
+    else:
+        return np.copy(img)      
+ 
