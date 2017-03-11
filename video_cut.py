@@ -38,8 +38,8 @@ while True:
             out = cv2.VideoWriter('video_cut.avi', fourcc, 30.0, (image.shape[1], image.shape[0]))
 
         #cv2.imshow('video', image)
-        cv2.imwrite('c_'+str(frame_cnt)+'.jpg', image)
-        #out.write(image)
+        #cv2.imwrite('c_'+str(frame_cnt)+'.jpg', image)
+        out.write(image)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break

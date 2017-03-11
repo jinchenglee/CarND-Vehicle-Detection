@@ -23,7 +23,7 @@ class bbox():
         self.spatial_size = 16
         self.histbin = 10
         # Parameters of HOG features 
-        self.colorspace = 'RGB2YCrCb' # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
+        self.colorspace = 'RGB2RGB' # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
         self.orient = 9
         self.pix_per_cell = 8
         self.cell_per_block = 2
@@ -108,9 +108,9 @@ class bbox():
         # Iterate through the list of images
         for file in imgs:
             # Read in each one by one
-            image = mpimg.imread(file)
+            #image = mpimg.imread(file)
             # If reading in .png file, scaling to right range
-            #image = mpimg.imread(file)*255
+            image = mpimg.imread(file)*255
             # apply color conversion 
             feature_image = img_filter.convert_color(image, conv=conv)
             # Apply bin_spatial() to get spatial color features
@@ -142,27 +142,27 @@ class bbox():
         cars = []
         notcars = []
         
-        for d in ['cars1', 'cars2', 'cars3']:
-            images = glob.glob('vehicles_smallset/'+d+'/*.jpeg')
+        #for d in ['cars1', 'cars2', 'cars3']:
+        #    images = glob.glob('vehicles_smallset/'+d+'/*.jpeg')
         # If using below data, please remember to *255 to scale to right range
-        #for d in ['GTI_Far','GTI_Left','GTI_MiddleClose','GTI_Right','KITTI_extracted']:
-        #   images = glob.glob('vehicles/'+d+'/*.png')
+        for d in ['GTI_Far','GTI_Left','GTI_MiddleClose','GTI_Right','KITTI_extracted']:
+            images = glob.glob('vehicles/'+d+'/*.png')
             for f in images:
                 cars.append(f)
         
-        for d in ['notcars1', 'notcars2', 'notcars3']:
-            images = glob.glob('non-vehicles_smallset/'+d+'/*.jpeg')
+        #for d in ['notcars1', 'notcars2', 'notcars3']:
+        #    images = glob.glob('non-vehicles_smallset/'+d+'/*.jpeg')
         # If using below data, please remember to *255 to scale to right range
-        #for d in ['Extras','GTI']:
-        #    images = glob.glob('non-vehicles/'+d+'/*.png')
+        for d in ['Extras','GTI']:
+            images = glob.glob('non-vehicles/'+d+'/*.png')
             for f in images:
                 notcars.append(f)
         
         # Extract features from labeled dataset
         car_features = self.extract_features(cars, conv=self.colorspace, spatial_size=(self.spatial_size, self.spatial_size),
-                                hist_bins=self.histbin, hist_range=(0, 256))
+                                hist_bins=self.histbin, hist_range=(80, 256))
         notcar_features = self.extract_features(notcars, conv=self.colorspace, spatial_size=(self.spatial_size, self.spatial_size),
-                                hist_bins=self.histbin, hist_range=(0, 256))
+                                hist_bins=self.histbin, hist_range=(80, 256))
         
         
         # Create an array stack of feature vectors
@@ -181,6 +181,7 @@ class bbox():
             scaled_X, y, test_size=0.2, random_state=rand_state)
         
         print('Using spatial binning of:',self.spatial_size,'and', self.histbin,'histogram bins')
+        print('Number of training data:',len(y_train), 'testing data:', len(y_test))
         print('Feature vector length:', len(X_train[0]))
         # Use a linear SVC 
         svc = LinearSVC()
@@ -217,10 +218,9 @@ class bbox():
         #img = img.astype(np.float32)/255
         
         img_tosearch = img[self.ystart:self.ystop,:,:]
-        ctrans_tosearch = img_filter.convert_color(img_tosearch, conv='RGB2CrCb')
+        ctrans_tosearch = img_filter.convert_color(img_tosearch, conv=self.colorspace)
         #print(np.max(ctrans_tosearch))
         if scale != 1:
-            print("rescale")
             imshape = ctrans_tosearch.shape
             ctrans_tosearch = cv2.resize(ctrans_tosearch, (np.int(imshape[1]/scale), np.int(imshape[0]/scale)))
             
@@ -269,10 +269,12 @@ class bbox():
                 tmp = np.hstack((spatial_features, hist_features, hog_features)).astype(np.float64) 
                 #print(tmp.shape)
                 test_features = self.X_scaler.transform(tmp.reshape(1,-1))     
-                #print(test_features)
                 test_prediction = self.svc.predict(test_features)
+                test_confidence = self.svc.decision_function(test_features)
          
-                if test_prediction == 1:
+                # Safeguard using prediction confidence to eliminate false positive 
+                # At very beginning
+                if (test_prediction==1) and (test_confidence>1.2):
                     xbox_left = np.int(xleft*scale)
                     ytop_draw = np.int(ytop*scale)
                     win_draw = np.int(window*scale)
@@ -297,13 +299,13 @@ class bbox():
     def apply_threshold(self, heatmap, threshold):
         # History list full
         len_heatmap_his = len(self.heatmap_his)
-        #print(len_heatmap_his)
-        if len_heatmap_his>4:
+        #print(np.sum(heatmap))
+        if len_heatmap_his>3:
             # Remove oldest hist data
             self.heatmap_his.pop()
         # Add latest data into the list
         self.heatmap_his.append(heatmap)
-        #print(self.heatmap_his)
+        #print(np.sum(self.heatmap_his))
 
         # Accumulate over history
         acc_heatmap = np.zeros_like(heatmap)
@@ -326,7 +328,7 @@ class bbox():
             # Define a bounding box based on min/max x and y
             bbox = ((np.min(nonzerox), np.min(nonzeroy)), (np.max(nonzerox), np.max(nonzeroy)))
             # If box is too small, it must be a false positive
-            THRESHOLD = 64 # pixels
+            THRESHOLD = 48 # pixels
             if ( (bbox[1][0]-bbox[0][0])<THRESHOLD or (bbox[1][1]-bbox[0][1])<THRESHOLD ):
                 continue
             else:

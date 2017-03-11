@@ -20,9 +20,9 @@ def bbox_pipeline(bbox, img, bbox_list=[]):
     img = np.copy(img)
 
     # Do multi-scale searching
-    scale = 1.6
+    scale = 1.0
     img1, bbox_list = bbox.find_cars(img, scale, bbox_list)
-    scale = 2.0
+    scale = 1.6
     img2, bbox_list = bbox.find_cars(img, scale, bbox_list)
     scale = 2.2
     img3, bbox_list = bbox.find_cars(img, scale, bbox_list)
@@ -33,7 +33,7 @@ def bbox_pipeline(bbox, img, bbox_list=[]):
     # Add heat to each box in box list
     heat = bbox.add_heat(heat,bbox_list)
     # Apply threshold to help remove false positives
-    heat = bbox.apply_threshold(heat,1)
+    heat = bbox.apply_threshold(heat,2)
     # Visualize the heatmap when displaying    
     heatmap = np.clip(heat, 0, 255)
     
@@ -46,7 +46,7 @@ def bbox_pipeline(bbox, img, bbox_list=[]):
     # Alpha blending
     img = cv2.addWeighted(img1, 0.5, img2, 0.5, 0)
     img = cv2.addWeighted(img, 0.7, img3, 0.3, 0)
-    draw_img = cv2.addWeighted(draw_img, 0.4, img, 0.6, 0) 
+    draw_img = cv2.addWeighted(draw_img, 0.5, img, 0.5, 0) 
 
     return draw_img
 
