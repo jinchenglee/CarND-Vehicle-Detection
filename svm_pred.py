@@ -12,21 +12,23 @@ bbox_list=[]
 
 img = mpimg.imread('test_images/test6.jpg')
 
-scale = 1.8
-out_img, bbox_list = bbox.find_cars(img, scale, bbox_list)
-plt.imshow(out_img)
+#scale = 1.6
+#out_img, bbox_list = bbox.find_cars(img, scale, bbox_list)
+#plt.imshow(out_img)
 
-scale = 1.6
-out_img, bbox_list = bbox.find_cars(img, scale, bbox_list)
-plt.imshow(out_img)
+#scale = 1.3
+#out_img, bbox_list = bbox.find_cars(img, scale, bbox_list)
+#plt.imshow(out_img)
 
-scale = 1.3
-out_img, bbox_list = bbox.find_cars(img, scale, bbox_list)
-plt.imshow(out_img)
+#scale = 2.0
+#out_img, bbox_list = bbox.find_cars(img, scale, bbox_list)
+#plt.imshow(out_img)
+#print(bbox_list)
 
-scale = 1.0
+scale = 2.2
 out_img, bbox_list = bbox.find_cars(img, scale, bbox_list)
 plt.imshow(out_img)
+print(bbox_list)
 
 ### Heatmap and labelledbounding box
 
@@ -37,7 +39,7 @@ heat = np.zeros_like(img[:,:,0]).astype(np.float)
 heat = bbox.add_heat(heat,bbox_list)
 
 # Apply threshold to help remove false positives
-heat = bbox.apply_threshold(heat,2)
+heat = bbox.apply_threshold(heat,0)
 
 # Visualize the heatmap when displaying    
 heatmap = np.clip(heat, 0, 255)

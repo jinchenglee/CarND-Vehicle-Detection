@@ -107,6 +107,8 @@ class bbox():
         for file in imgs:
             # Read in each one by one
             image = mpimg.imread(file)
+            # If reading in .png file, scaling to right range
+            #image = mpimg.imread(file)*255
             # apply color conversion if other than 'RGB'
             feature_image = img_filter.convert_color(image, conv=conv)
             # Apply bin_spatial() to get spatial color features
@@ -140,11 +142,17 @@ class bbox():
         
         for d in ['cars1', 'cars2', 'cars3']:
             images = glob.glob('vehicles_smallset/'+d+'/*.jpeg')
+        # If using below data, please remember to *255 to scale to right range
+        #for d in ['GTI_Far','GTI_Left','GTI_MiddleClose','GTI_Right','KITTI_extracted']:
+        #   images = glob.glob('vehicles/'+d+'/*.png')
             for f in images:
                 cars.append(f)
         
         for d in ['notcars1', 'notcars2', 'notcars3']:
             images = glob.glob('non-vehicles_smallset/'+d+'/*.jpeg')
+        # If using below data, please remember to *255 to scale to right range
+        #for d in ['Extras','GTI']:
+        #    images = glob.glob('non-vehicles/'+d+'/*.png')
             for f in images:
                 notcars.append(f)
         
@@ -210,6 +218,7 @@ class bbox():
         ctrans_tosearch = img_filter.convert_color(img_tosearch, conv='RGB2RGB')
         #print(np.max(ctrans_tosearch))
         if scale != 1:
+            print("rescale")
             imshape = ctrans_tosearch.shape
             ctrans_tosearch = cv2.resize(ctrans_tosearch, (np.int(imshape[1]/scale), np.int(imshape[0]/scale)))
             
@@ -268,7 +277,7 @@ class bbox():
                     top_left = (xbox_left, ytop_draw+self.ystart)
                     bottom_right = (xbox_left+win_draw,ytop_draw+win_draw+self.ystart)
                     bbox_list.append((top_left, bottom_right))
-                    cv2.rectangle(draw_img,top_left,bottom_right,(0,0,255),6) 
+                    cv2.rectangle(draw_img,top_left,bottom_right,(255,0,0),6) 
                     
         return draw_img, bbox_list
     
