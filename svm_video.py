@@ -21,11 +21,13 @@ def bbox_pipeline(bbox, img, bbox_list=[]):
 
     # Do multi-scale searching
     scale = 1.0
-    img1, bbox_list = bbox.find_cars(img, scale, bbox_list)
-    scale = 1.6
-    img2, bbox_list = bbox.find_cars(img, scale, bbox_list)
-    scale = 2.2
-    img3, bbox_list = bbox.find_cars(img, scale, bbox_list)
+    bbox_list = bbox.find_cars(img, scale, bbox_list)
+    scale = 1.5
+    bbox_list = bbox.find_cars(img, scale, bbox_list)
+    scale = 2.0
+    bbox_list = bbox.find_cars(img, scale, bbox_list)
+    scale = 2.5
+    bbox_list = bbox.find_cars(img, scale, bbox_list)
     
     ### Heatmap and labelledbounding box
     # Heat map
@@ -40,13 +42,12 @@ def bbox_pipeline(bbox, img, bbox_list=[]):
     # Label bounding box
     # Find final boxes from heatmap using label function
     labels = label(heatmap)
+    img = bbox.draw_bboxes(img, bbox_list)
     draw_img = bbox.draw_labeled_bboxes(img, labels)
     # To view the heatmap boxes?
     #draw_img = np.array(np.dstack((heatmap, heatmap, heatmap))*255, dtype='uint8')
     # Alpha blending
-    img = cv2.addWeighted(img1, 0.5, img2, 0.5, 0)
-    img = cv2.addWeighted(img, 0.7, img3, 0.3, 0)
-    draw_img = cv2.addWeighted(draw_img, 0.5, img, 0.5, 0) 
+    draw_img = cv2.addWeighted(draw_img, 0.9, img, 0.1, 0) 
 
     return draw_img
 

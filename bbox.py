@@ -21,18 +21,25 @@ class bbox():
     def __init__(self):
         # Parameters of image spatial and color histogram features 
         self.spatial_size = 16
-        self.histbin = 10
+        self.histbin = 8 
         # Parameters of HOG features 
-        self.colorspace = 'RGB2RGB' # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
-        self.orient = 9
+        self.colorspace = 'RGB2YCrCb' # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
+        self.orient =10 
         self.pix_per_cell = 8
         self.cell_per_block = 2
         # Classifier
         self.svc = None
         self.X_scaler = None
         # Only search the lower part of image
+        self.xstart = 0
+        self.xstop = 1280
         self.ystart = 400
         self.ystop = 656
+        # Smaller window
+        self.xstart_s = 100
+        self.xstop_s = 1180
+        self.ystart_s = 400
+        self.ystop_s = 550
         # History heatmap
         self.heatmap_his = []
 
@@ -160,9 +167,9 @@ class bbox():
         
         # Extract features from labeled dataset
         car_features = self.extract_features(cars, conv=self.colorspace, spatial_size=(self.spatial_size, self.spatial_size),
-                                hist_bins=self.histbin, hist_range=(80, 256))
+                                hist_bins=self.histbin, hist_range=(0, 256))
         notcar_features = self.extract_features(notcars, conv=self.colorspace, spatial_size=(self.spatial_size, self.spatial_size),
-                                hist_bins=self.histbin, hist_range=(80, 256))
+                                hist_bins=self.histbin, hist_range=(0, 256))
         
         
         # Create an array stack of feature vectors
@@ -213,11 +220,11 @@ class bbox():
         # using pre-trained SVM classifier.
         """
         
-        draw_img = np.copy(img)
-        # Mask off below line due to wrong scale
-        #img = img.astype(np.float32)/255
-        
-        img_tosearch = img[self.ystart:self.ystop,:,:]
+        if scale<1.6:
+            img_tosearch = img[self.ystart_s:self.ystop_s,self.xstart_s:self.xstop_s,:]
+        else:
+            img_tosearch = img[self.ystart:self.ystop,:,:]
+
         ctrans_tosearch = img_filter.convert_color(img_tosearch, conv=self.colorspace)
         #print(np.max(ctrans_tosearch))
         if scale != 1:
@@ -238,6 +245,8 @@ class bbox():
         cells_per_step = 2  # Instead of overlap, define how many cells to step
         nxsteps = (nxblocks - nblocks_per_window) // cells_per_step
         nysteps = (nyblocks - nblocks_per_window) // cells_per_step
+        print(nxsteps)
+        print(nysteps)
         
         # Compute individual channel HOG features for the entire image
         hog1 = self.get_hog_features(ch1, self.orient, self.pix_per_cell, self.cell_per_block, feature_vec=False)
@@ -274,16 +283,20 @@ class bbox():
          
                 # Safeguard using prediction confidence to eliminate false positive 
                 # At very beginning
-                if (test_prediction==1) and (test_confidence>1.2):
-                    xbox_left = np.int(xleft*scale)
-                    ytop_draw = np.int(ytop*scale)
+                if (test_prediction==1) and (test_confidence>2.0):
+                    print(test_confidence)
+                    if scale<1.6:
+                        xbox_left = self.xstart_s+np.int(xleft*scale)
+                        ytop_draw = self.ystart_s+np.int(ytop*scale)
+                    else:
+                        xbox_left = self.xstart+np.int(xleft*scale)
+                        ytop_draw = self.ystart+np.int(ytop*scale)
                     win_draw = np.int(window*scale)
-                    top_left = (xbox_left, ytop_draw+self.ystart)
-                    bottom_right = (xbox_left+win_draw,ytop_draw+win_draw+self.ystart)
+                    top_left = (xbox_left, ytop_draw)
+                    bottom_right = (xbox_left+win_draw,ytop_draw+win_draw)
                     bbox_list.append((top_left, bottom_right))
-                    cv2.rectangle(draw_img,top_left,bottom_right,(255,0,0),6) 
                     
-        return draw_img, bbox_list
+        return bbox_list
     
 
     def add_heat(self, heatmap, bbox_list):
@@ -302,7 +315,7 @@ class bbox():
         #print(np.sum(heatmap))
         if len_heatmap_his>3:
             # Remove oldest hist data
-            self.heatmap_his.pop()
+            self.heatmap_his.pop(0)
         # Add latest data into the list
         self.heatmap_his.append(heatmap)
         #print(np.sum(self.heatmap_his))
@@ -317,6 +330,14 @@ class bbox():
         # Return thresholded map
         return acc_heatmap
     
+    def draw_bboxes(self, img, bbox_list):
+        # Iterate through all detected cars
+        for bbox in bbox_list:
+            # Draw the box on the image
+            cv2.rectangle(img, bbox[0], bbox[1], (0,255,0), 3)
+        # Return the image
+        return img
+
     def draw_labeled_bboxes(self, img, labels):
         # Iterate through all detected cars
         for car_number in range(1, labels[1]+1):

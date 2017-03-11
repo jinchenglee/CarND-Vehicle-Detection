@@ -13,22 +13,16 @@ bbox_list=[]
 img = mpimg.imread('test_images/test6.jpg')
 
 scale = 1.6
-out_img, bbox_list = bbox.find_cars(img, scale, bbox_list)
-#plt.imshow(out_img)
+bbox_list = bbox.find_cars(img, scale, bbox_list)
 
 scale = 1.3
-out_img, bbox_list = bbox.find_cars(img, scale, bbox_list)
-#plt.imshow(out_img)
+bbox_list = bbox.find_cars(img, scale, bbox_list)
 
 scale = 2.0
-out_img, bbox_list = bbox.find_cars(img, scale, bbox_list)
-#plt.imshow(out_img)
-#print(bbox_list)
+bbox_list = bbox.find_cars(img, scale, bbox_list)
 
 scale = 2.2
-out_img, bbox_list = bbox.find_cars(img, scale, bbox_list)
-plt.imshow(out_img)
-print(bbox_list)
+bbox_list = bbox.find_cars(img, scale, bbox_list)
 
 ### Heatmap and labelledbounding box
 
