@@ -2,17 +2,19 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+from scipy.ndimage.measurements import label
 import pickle
 import glob
 import sys
 import img_filter 
 import lane
+import bbox
 
 
 # Lane detection pipeline
-def pipeline(lane, img, fresh_start=False, luma_th=30, sat_th=(170, 255), grad_th=(50, 150), sobel_ksize=5, visual_on=True):
+def lane_pipeline(lane, img, fresh_start=False, luma_th=30, sat_th=(170, 255), grad_th=(50, 150), sobel_ksize=5, visual_on=True):
     '''
-    Processing pipeline
+    Processing lane detection 
     
     1. Leverage HLS color space. 
     2. Gradients threshold.
@@ -75,6 +77,43 @@ def pipeline(lane, img, fresh_start=False, luma_th=30, sat_th=(170, 255), grad_t
     return res, visualize_img, detected
 
 
+# Vehicle detection pipeline
+def bbox_pipeline(bbox, img, bbox_list=[]):
+    '''
+    Processing vehicle detection and bounding box.
+    '''
+    img = np.copy(img)
+
+    # Do multi-scale searching
+    scale = 1.8
+    _, bbox_list = bbox.find_cars(img, scale, bbox_list)
+    scale = 1.6
+    _, bbox_list = bbox.find_cars(img, scale, bbox_list)
+    scale = 1.3
+    _, bbox_list = bbox.find_cars(img, scale, bbox_list)
+    scale = 1.0
+    _, bbox_list = bbox.find_cars(img, scale, bbox_list)
+    
+    ### Heatmap and labelledbounding box
+    # Heat map
+    heat = np.zeros_like(img[:,:,0]).astype(np.float)
+    # Add heat to each box in box list
+    heat = bbox.add_heat(heat,bbox_list)
+    # Apply threshold to help remove false positives
+    heat = bbox.apply_threshold(heat,2)
+    # Visualize the heatmap when displaying    
+    heatmap = np.clip(heat, 0, 255)
+    
+    # Label bounding box
+    # Find final boxes from heatmap using label function
+    labels = label(heatmap)
+    draw_img = bbox.draw_labeled_bboxes(np.copy(img), labels)
+
+    return draw_img
+
+
+
+
 # -------------------------------------
 # Command line argument processing
 # -------------------------------------
@@ -101,7 +140,12 @@ out=None
 # Generate x and y values for plotting
 ploty = np.linspace(0, 719, 720)
 
+# Lane detector
 lane = lane.lane()
+# Vehicle detector
+bbox = bbox.bbox()
+bbox.get_param()
+bbox_list = []
 
 # Search as if from start of frame
 detected = False
@@ -118,8 +162,10 @@ while True:
         if out == None:
             out = cv2.VideoWriter('output.avi', fourcc, 30.0, (image.shape[1], image.shape[0]//2))
 
-        # Video pipeline
-        res, vis_img, detected = pipeline(lane, image, (frame_cnt==1) or (not(detected)), visual_on=VISUAL_ON)
+        # lane finding pipeline
+        res, vis_img, detected = lane_pipeline(lane, image, (frame_cnt==1) or (not(detected)), visual_on=VISUAL_ON)
+        # Vehicle detection pipeline
+        res = bbox_pipeline(bbox, res, bbox_list)
 
         # Resize
         res = cv2.resize(res, (res.shape[1]//2, res.shape[0]//2))
