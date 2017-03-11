@@ -107,7 +107,7 @@ def bbox_pipeline(bbox, img, bbox_list=[]):
     # Label bounding box
     # Find final boxes from heatmap using label function
     labels = label(heatmap)
-    draw_img = bbox.draw_labeled_bboxes(np.copy(img), labels)
+    draw_img = bbox.draw_labeled_bboxes(img, labels)
 
     return draw_img
 
@@ -152,6 +152,7 @@ detected = False
 
 while True:
     flag, image = clip.read()
+    bbox_list = []
     if flag:
         frame_cnt += 1
         if frame_cnt < frame_start:
