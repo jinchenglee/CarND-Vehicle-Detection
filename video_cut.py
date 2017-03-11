@@ -19,8 +19,8 @@ clip = cv2.VideoCapture(FILE)
 fourcc = cv2.VideoWriter_fourcc(*'MJPG')
 
 frame_cnt = 0
-frame_start = 600
-frame_end = 650
+frame_start = 680
+frame_end = 750
 #frame_end = 50
 
 out=None
@@ -37,8 +37,8 @@ while True:
         if out == None:
             out = cv2.VideoWriter('video_cut.avi', fourcc, 30.0, (image.shape[1], image.shape[0]))
 
-        cv2.imshow('video', image)
-        #cv2.imwrite('c_'+str(frame_cnt)+'.png', image)
+        #cv2.imshow('video', image)
+        cv2.imwrite('c_'+str(frame_cnt)+'.jpg', image)
         #out.write(image)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):

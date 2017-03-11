@@ -23,7 +23,7 @@ class bbox():
         self.spatial_size = 16
         self.histbin = 10
         # Parameters of HOG features 
-        self.colorspace = 'RGB' # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
+        self.colorspace = 'RGB2YCrCb' # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
         self.orient = 9
         self.pix_per_cell = 8
         self.cell_per_block = 2
@@ -33,6 +33,8 @@ class bbox():
         # Only search the lower part of image
         self.ystart = 400
         self.ystop = 656
+        # History heatmap
+        self.heatmap_his = []
 
 
     def save_param(self, dist_pickle={}):
@@ -95,7 +97,7 @@ class bbox():
         # Return the individual histograms, bin_centers and feature vector
         return hist_features
     
-    def extract_features(self, imgs, conv='RGB2HSV', spatial_size=(32, 32),
+    def extract_features(self, imgs, conv='RGB2YCrCb', spatial_size=(32, 32),
                             hist_bins=32, hist_range=(0, 256)):
         """
         # Define a function to extract features from a list of images
@@ -109,7 +111,7 @@ class bbox():
             image = mpimg.imread(file)
             # If reading in .png file, scaling to right range
             #image = mpimg.imread(file)*255
-            # apply color conversion if other than 'RGB'
+            # apply color conversion 
             feature_image = img_filter.convert_color(image, conv=conv)
             # Apply bin_spatial() to get spatial color features
             spatial_features = self.bin_spatial(feature_image, size=spatial_size)
@@ -158,9 +160,9 @@ class bbox():
         
         # Extract features from labeled dataset
         car_features = self.extract_features(cars, conv=self.colorspace, spatial_size=(self.spatial_size, self.spatial_size),
-                                hist_bins=self.histbin, hist_range=(100, 256))
+                                hist_bins=self.histbin, hist_range=(0, 256))
         notcar_features = self.extract_features(notcars, conv=self.colorspace, spatial_size=(self.spatial_size, self.spatial_size),
-                                hist_bins=self.histbin, hist_range=(100, 256))
+                                hist_bins=self.histbin, hist_range=(0, 256))
         
         
         # Create an array stack of feature vectors
@@ -215,7 +217,7 @@ class bbox():
         #img = img.astype(np.float32)/255
         
         img_tosearch = img[self.ystart:self.ystop,:,:]
-        ctrans_tosearch = img_filter.convert_color(img_tosearch, conv='RGB2RGB')
+        ctrans_tosearch = img_filter.convert_color(img_tosearch, conv='RGB2CrCb')
         #print(np.max(ctrans_tosearch))
         if scale != 1:
             print("rescale")
@@ -293,10 +295,25 @@ class bbox():
         return heatmap# Iterate through list of bboxes
         
     def apply_threshold(self, heatmap, threshold):
+        # History list full
+        len_heatmap_his = len(self.heatmap_his)
+        #print(len_heatmap_his)
+        if len_heatmap_his>4:
+            # Remove oldest hist data
+            self.heatmap_his.pop()
+        # Add latest data into the list
+        self.heatmap_his.append(heatmap)
+        #print(self.heatmap_his)
+
+        # Accumulate over history
+        acc_heatmap = np.zeros_like(heatmap)
+        for cur_heatmap in self.heatmap_his:
+            acc_heatmap += cur_heatmap
+
         # Zero out pixels below the threshold
-        heatmap[heatmap <= threshold] = 0
+        acc_heatmap[heatmap <= threshold] = 0
         # Return thresholded map
-        return heatmap
+        return acc_heatmap
     
     def draw_labeled_bboxes(self, img, labels):
         # Iterate through all detected cars
@@ -308,8 +325,13 @@ class bbox():
             nonzerox = np.array(nonzero[1])
             # Define a bounding box based on min/max x and y
             bbox = ((np.min(nonzerox), np.min(nonzeroy)), (np.max(nonzerox), np.max(nonzeroy)))
-            # Draw the box on the image
-            cv2.rectangle(img, bbox[0], bbox[1], (0,0,255), 6)
+            # If box is too small, it must be a false positive
+            THRESHOLD = 64 # pixels
+            if ( (bbox[1][0]-bbox[0][0])<THRESHOLD or (bbox[1][1]-bbox[0][1])<THRESHOLD ):
+                continue
+            else:
+                # Draw the box on the image
+                cv2.rectangle(img, bbox[0], bbox[1], (0,0,255), 6)
         # Return the image
         return img
 
