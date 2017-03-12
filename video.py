@@ -26,10 +26,10 @@ def lane_pipeline(lane, img, fresh_start=False, luma_th=30, sat_th=(170, 255), g
     K,d,P,P_inv = lane.get_param()
 
     # Undistort
-    img = img_filter.undistort(img, K, d)
+    undistort_img = img_filter.undistort(img, K, d)
 
     # Convert to HSV color space and separate the V channel
-    hls = img_filter.conv_hls_halfmask(img)
+    hls = img_filter.conv_hls_halfmask(undistort_img)
     # Luma threshold
     luma_binary = np.zeros_like(hls[:,:,1])
     luma_binary = img_filter.filter_luma(hls[:,:,1], threshold=luma_th)
@@ -43,7 +43,7 @@ def lane_pipeline(lane, img, fresh_start=False, luma_th=30, sat_th=(170, 255), g
     sat_binary = img_filter.filter_sat(img_sat_ch=hls[:,:,2], threshold=sat_th)
 
     # Mentor feedback method
-    mentor_binary = img_filter.filter_mentor_advise(img) 
+    mentor_binary = img_filter.filter_mentor_advise(undistort_img) 
 
     # Combine filter binaries
     binary = np.zeros_like(luma_binary)
@@ -65,7 +65,7 @@ def lane_pipeline(lane, img, fresh_start=False, luma_th=30, sat_th=(170, 255), g
     detected = lane.fit_sanity_check()
 
     # Draw detected lane onto the road
-    res = lane.draw_lane_area(binary_warped, img, P_inv)
+    res = lane.draw_lane_area(binary_warped, undistort_img, P_inv)
 
     # Return the binary image
     visualize_img = lane.visualize_fit(binary_warped)
@@ -74,12 +74,12 @@ def lane_pipeline(lane, img, fresh_start=False, luma_th=30, sat_th=(170, 255), g
     if visual_on:
         res = cv2.addWeighted(res, 1, visualize_img, 0.5, 0)
 
-    return res, visualize_img, detected
+    return res, visualize_img, undistort_img, detected
 
 
 
 # Vehicle detection pipeline
-def bbox_pipeline(bbox, img, bbox_list=[]):
+def bbox_pipeline(bbox, img, lane_img, bbox_list=[]):
     '''
     Processing vehicle detection and bounding box.
     '''
@@ -106,12 +106,13 @@ def bbox_pipeline(bbox, img, bbox_list=[]):
     # Label bounding box
     # Find final boxes from heatmap using label function
     labels = label(heatmap)
-    img = bbox.draw_bboxes(img, bbox_list)
+    # Draw rejected windows?
+    #img = bbox.draw_bboxes(img, bbox_list)
     draw_img = bbox.draw_labeled_bboxes(img, labels)
     # To view the heatmap boxes?
     #draw_img = np.array(np.dstack((heatmap, heatmap, heatmap))*255, dtype='uint8')
     # Alpha blending
-    draw_img = cv2.addWeighted(draw_img, 0.9, img, 0.1, 0) 
+    draw_img = cv2.addWeighted(draw_img, 0.5, lane_img, 0.5, 0) 
 
     return draw_img
 
@@ -167,10 +168,10 @@ while True:
         if out == None:
             out = cv2.VideoWriter('output.avi', fourcc, 30.0, (image.shape[1], image.shape[0]//2))
 
-        # Vehicle detection pipeline
-        res = bbox_pipeline(bbox, image, bbox_list)
         # lane finding pipeline
-        res, vis_img, detected = lane_pipeline(lane, res, (frame_cnt==1) or (not(detected)), visual_on=VISUAL_ON)
+        res, vis_img, undistort_img, detected = lane_pipeline(lane, image, (frame_cnt==1) or (not(detected)), visual_on=VISUAL_ON)
+        # Vehicle detection pipeline
+        res = bbox_pipeline(bbox, undistort_img, res, bbox_list)
 
         # Resize
         res = cv2.resize(res, (res.shape[1]//2, res.shape[0]//2))
