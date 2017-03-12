@@ -21,10 +21,11 @@ class bbox():
     def __init__(self):
         # Parameters of image spatial and color histogram features 
         self.spatial_size = 16
-        self.histbin = 8 
+        self.histbin = 10
+        self.hist_range = (80,256)
         # Parameters of HOG features 
         self.colorspace = 'RGB2YCrCb' # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
-        self.orient =10 
+        self.orient = 9
         self.pix_per_cell = 8
         self.cell_per_block = 2
         # Classifier
@@ -36,12 +37,17 @@ class bbox():
         self.ystart = 400
         self.ystop = 656
         # Smaller window
-        self.xstart_s = 100
-        self.xstop_s = 1180
+        self.xstart_s = 0
+        self.xstop_s = 1280
         self.ystart_s = 400
         self.ystop_s = 550
         # History heatmap
         self.heatmap_his = []
+        self.len_heatmp_history = 3
+        # Small scale threshold (to shrink search area with that scale)
+        self.small_scale_threshold = 1.6
+        # Prediction confidence threshold (To reject false positive at very beginning)
+        self.pred_confidence_threshold = 0.8
 
 
     def save_param(self, dist_pickle={}):
@@ -104,8 +110,7 @@ class bbox():
         # Return the individual histograms, bin_centers and feature vector
         return hist_features
     
-    def extract_features(self, imgs, conv='RGB2YCrCb', spatial_size=(32, 32),
-                            hist_bins=32, hist_range=(0, 256)):
+    def extract_features(self, imgs):
         """
         # Define a function to extract features from a list of images
         # Have this function call bin_spatial(), color_hist() and get_hog_features().
@@ -115,27 +120,26 @@ class bbox():
         # Iterate through the list of images
         for file in imgs:
             # Read in each one by one
-            #image = mpimg.imread(file)
-            # If reading in .png file, scaling to right range
-            image = mpimg.imread(file)*255
+            image = cv2.imread(file)
             # apply color conversion 
-            feature_image = img_filter.convert_color(image, conv=conv)
+            feature_image = img_filter.convert_color(image, conv=self.colorspace)
             # Apply bin_spatial() to get spatial color features
-            spatial_features = self.bin_spatial(feature_image, size=spatial_size)
+            spatial_features = self.bin_spatial(feature_image, size=(self.spatial_size,self.spatial_size))
             #print(spatial_features.shape)
             # Apply color_hist() also with a color space option now
-            hist_features = self.color_hist(feature_image, nbins=hist_bins, bins_range=hist_range)
+            hist_features = self.color_hist(feature_image, nbins=self.histbin, bins_range=self.hist_range)
             #print(hist_features.shape)
             # Compute individual channel HOG features for the entire image
             hog1 = self.get_hog_features(feature_image[:,:,0], self.orient, self.pix_per_cell, self.cell_per_block, feature_vec=False)
-            hog2 = self.get_hog_features(feature_image[:,:,1], self.orient, self.pix_per_cell, self.cell_per_block, feature_vec=False)
-            hog3 = self.get_hog_features(feature_image[:,:,2], self.orient, self.pix_per_cell, self.cell_per_block, feature_vec=False)
+            #hog2 = self.get_hog_features(feature_image[:,:,1], self.orient, self.pix_per_cell, self.cell_per_block, feature_vec=False)
+            #hog3 = self.get_hog_features(feature_image[:,:,2], self.orient, self.pix_per_cell, self.cell_per_block, feature_vec=False)
     
-            hog_features = np.hstack((hog1, hog2, hog3)).reshape(-1,)
+            #hog_features = np.hstack((hog1, hog2, hog3)).reshape(-1,)
+            hog_features = hog1.reshape(-1,)
             #print(hog_features.shape)
+
             # Append the new feature vector to the features list
             features.append(np.concatenate((spatial_features, hist_features, hog_features)))
-            #features.append(hog1.reshape(-1,))
         # Return list of feature vectors
         return features
     
@@ -166,12 +170,9 @@ class bbox():
                 notcars.append(f)
         
         # Extract features from labeled dataset
-        car_features = self.extract_features(cars, conv=self.colorspace, spatial_size=(self.spatial_size, self.spatial_size),
-                                hist_bins=self.histbin, hist_range=(0, 256))
-        notcar_features = self.extract_features(notcars, conv=self.colorspace, spatial_size=(self.spatial_size, self.spatial_size),
-                                hist_bins=self.histbin, hist_range=(0, 256))
-        
-        
+        car_features = self.extract_features(cars)        
+        notcar_features = self.extract_features(notcars)        
+
         # Create an array stack of feature vectors
         X = np.vstack((car_features, notcar_features)).astype(np.float64)                        
         # Fit a per-column scaler
@@ -201,7 +202,7 @@ class bbox():
         print('Test Accuracy of SVC = ', round(svc.score(X_test, y_test), 4))
         # Check the prediction time for a single sample
         t=time.time()
-        n_predict = 20
+        n_predict = 10
         print('My SVC predicts: ', svc.predict(X_test[0:n_predict]))
         print('For these',n_predict, 'labels: ', y_test[0:n_predict])
         t2 = time.time()
@@ -220,7 +221,7 @@ class bbox():
         # using pre-trained SVM classifier.
         """
         
-        if scale<1.6:
+        if scale<self.small_scale_threshold:
             img_tosearch = img[self.ystart_s:self.ystop_s,self.xstart_s:self.xstop_s,:]
         else:
             img_tosearch = img[self.ystart:self.ystop,:,:]
@@ -250,8 +251,8 @@ class bbox():
         
         # Compute individual channel HOG features for the entire image
         hog1 = self.get_hog_features(ch1, self.orient, self.pix_per_cell, self.cell_per_block, feature_vec=False)
-        hog2 = self.get_hog_features(ch2, self.orient, self.pix_per_cell, self.cell_per_block, feature_vec=False)
-        hog3 = self.get_hog_features(ch3, self.orient, self.pix_per_cell, self.cell_per_block, feature_vec=False)
+        #hog2 = self.get_hog_features(ch2, self.orient, self.pix_per_cell, self.cell_per_block, feature_vec=False)
+        #hog3 = self.get_hog_features(ch3, self.orient, self.pix_per_cell, self.cell_per_block, feature_vec=False)
         
         for xb in range(nxsteps):
             for yb in range(nysteps):
@@ -259,9 +260,10 @@ class bbox():
                 xpos = xb*cells_per_step
                 # Extract HOG for this patch
                 hog_feat1 = hog1[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel() 
-                hog_feat2 = hog2[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel() 
-                hog_feat3 = hog3[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel() 
-                hog_features = np.hstack((hog_feat1, hog_feat2, hog_feat3))
+                #hog_feat2 = hog2[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel() 
+                #hog_feat3 = hog3[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel() 
+                #hog_features = np.hstack((hog_feat1, hog_feat2, hog_feat3))
+                hog_features = hog_feat1
     
                 xleft = xpos*self.pix_per_cell
                 ytop = ypos*self.pix_per_cell
@@ -271,7 +273,7 @@ class bbox():
               
                 # Get color features
                 spatial_features = self.bin_spatial(subimg, size=(self.spatial_size, self.spatial_size))
-                hist_features = self.color_hist(subimg, nbins=self.histbin)
+                hist_features = self.color_hist(subimg, nbins=self.histbin, bins_range=self.hist_range)
                 #print(hog_features.shape, spatial_features.shape, hist_features.shape)
     
                 # Scale features and make a prediction
@@ -283,9 +285,9 @@ class bbox():
          
                 # Safeguard using prediction confidence to eliminate false positive 
                 # At very beginning
-                if (test_prediction==1) and (test_confidence>2.0):
+                if (test_prediction==1) and (test_confidence>self.pred_confidence_threshold):
                     print(test_confidence)
-                    if scale<1.6:
+                    if scale<self.small_scale_threshold:
                         xbox_left = self.xstart_s+np.int(xleft*scale)
                         ytop_draw = self.ystart_s+np.int(ytop*scale)
                     else:
@@ -313,7 +315,7 @@ class bbox():
         # History list full
         len_heatmap_his = len(self.heatmap_his)
         #print(np.sum(heatmap))
-        if len_heatmap_his>3:
+        if len_heatmap_his>self.len_heatmp_history:
             # Remove oldest hist data
             self.heatmap_his.pop(0)
         # Add latest data into the list

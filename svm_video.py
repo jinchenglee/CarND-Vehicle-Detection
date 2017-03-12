@@ -22,12 +22,12 @@ def bbox_pipeline(bbox, img, bbox_list=[]):
     # Do multi-scale searching
     scale = 1.0
     bbox_list = bbox.find_cars(img, scale, bbox_list)
-    scale = 1.5
-    bbox_list = bbox.find_cars(img, scale, bbox_list)
-    scale = 2.0
-    bbox_list = bbox.find_cars(img, scale, bbox_list)
-    scale = 2.5
-    bbox_list = bbox.find_cars(img, scale, bbox_list)
+    #scale = 1.5
+    #bbox_list = bbox.find_cars(img, scale, bbox_list)
+    #scale = 2.0
+    #bbox_list = bbox.find_cars(img, scale, bbox_list)
+    #scale = 2.5
+    #bbox_list = bbox.find_cars(img, scale, bbox_list)
     
     ### Heatmap and labelledbounding box
     # Heat map

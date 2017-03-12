@@ -19,8 +19,8 @@ clip = cv2.VideoCapture(FILE)
 fourcc = cv2.VideoWriter_fourcc(*'MJPG')
 
 frame_cnt = 0
-frame_start = 680
-frame_end = 750
+frame_start = 500
+frame_end = 600
 #frame_end = 50
 
 out=None
