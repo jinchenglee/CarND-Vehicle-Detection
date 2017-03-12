@@ -77,6 +77,7 @@ def lane_pipeline(lane, img, fresh_start=False, luma_th=30, sat_th=(170, 255), g
     return res, visualize_img, detected
 
 
+
 # Vehicle detection pipeline
 def bbox_pipeline(bbox, img, bbox_list=[]):
     '''
@@ -85,14 +86,12 @@ def bbox_pipeline(bbox, img, bbox_list=[]):
     img = np.copy(img)
 
     # Do multi-scale searching
-    scale = 1.8
-    _, bbox_list = bbox.find_cars(img, scale, bbox_list)
-    scale = 1.6
-    _, bbox_list = bbox.find_cars(img, scale, bbox_list)
-    scale = 1.3
-    _, bbox_list = bbox.find_cars(img, scale, bbox_list)
     scale = 1.0
-    _, bbox_list = bbox.find_cars(img, scale, bbox_list)
+    bbox_list = bbox.find_cars(img, scale, bbox_list)
+    scale = 1.5
+    bbox_list = bbox.find_cars(img, scale, bbox_list)
+    scale = 2.0
+    bbox_list = bbox.find_cars(img, scale, bbox_list)
     
     ### Heatmap and labelledbounding box
     # Heat map
@@ -100,14 +99,19 @@ def bbox_pipeline(bbox, img, bbox_list=[]):
     # Add heat to each box in box list
     heat = bbox.add_heat(heat,bbox_list)
     # Apply threshold to help remove false positives
-    heat = bbox.apply_threshold(heat,2)
+    heat = bbox.apply_threshold(heat,5)
     # Visualize the heatmap when displaying    
     heatmap = np.clip(heat, 0, 255)
     
     # Label bounding box
     # Find final boxes from heatmap using label function
     labels = label(heatmap)
+    img = bbox.draw_bboxes(img, bbox_list)
     draw_img = bbox.draw_labeled_bboxes(img, labels)
+    # To view the heatmap boxes?
+    #draw_img = np.array(np.dstack((heatmap, heatmap, heatmap))*255, dtype='uint8')
+    # Alpha blending
+    draw_img = cv2.addWeighted(draw_img, 0.9, img, 0.1, 0) 
 
     return draw_img
 
@@ -163,10 +167,10 @@ while True:
         if out == None:
             out = cv2.VideoWriter('output.avi', fourcc, 30.0, (image.shape[1], image.shape[0]//2))
 
-        # lane finding pipeline
-        res, vis_img, detected = lane_pipeline(lane, image, (frame_cnt==1) or (not(detected)), visual_on=VISUAL_ON)
         # Vehicle detection pipeline
-        res = bbox_pipeline(bbox, res, bbox_list)
+        res = bbox_pipeline(bbox, image, bbox_list)
+        # lane finding pipeline
+        res, vis_img, detected = lane_pipeline(lane, res, (frame_cnt==1) or (not(detected)), visual_on=VISUAL_ON)
 
         # Resize
         res = cv2.resize(res, (res.shape[1]//2, res.shape[0]//2))

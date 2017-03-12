@@ -22,7 +22,7 @@ class bbox():
         # Parameters of image spatial and color histogram features 
         self.spatial_size = 16
         self.histbin = 10
-        self.hist_range = (80,256)
+        self.hist_range = (50,256)
         # Parameters of HOG features 
         self.colorspace = 'RGB2YCrCb' # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
         self.orient = 9
@@ -37,17 +37,17 @@ class bbox():
         self.ystart = 400
         self.ystop = 656
         # Smaller window
-        self.xstart_s = 0
-        self.xstop_s = 1280
+        self.xstart_s = 150
+        self.xstop_s = 1130
         self.ystart_s = 400
-        self.ystop_s = 550
+        self.ystop_s = 520
         # History heatmap
         self.heatmap_his = []
         self.len_heatmp_history = 3
         # Small scale threshold (to shrink search area with that scale)
         self.small_scale_threshold = 1.6
         # Prediction confidence threshold (To reject false positive at very beginning)
-        self.pred_confidence_threshold = 0.8
+        self.pred_confidence_threshold = 0.9
 
 
     def save_param(self, dist_pickle={}):
@@ -286,7 +286,7 @@ class bbox():
                 # Safeguard using prediction confidence to eliminate false positive 
                 # At very beginning
                 if (test_prediction==1) and (test_confidence>self.pred_confidence_threshold):
-                    print(test_confidence)
+                    #print(test_confidence)
                     if scale<self.small_scale_threshold:
                         xbox_left = self.xstart_s+np.int(xleft*scale)
                         ytop_draw = self.ystart_s+np.int(ytop*scale)
@@ -326,9 +326,10 @@ class bbox():
         acc_heatmap = np.zeros_like(heatmap)
         for cur_heatmap in self.heatmap_his:
             acc_heatmap += cur_heatmap
+            print(np.max(cur_heatmap), np.max(acc_heatmap))
 
         # Zero out pixels below the threshold
-        acc_heatmap[heatmap <= threshold] = 0
+        acc_heatmap[acc_heatmap <= threshold] = 0
         # Return thresholded map
         return acc_heatmap
     
@@ -336,7 +337,7 @@ class bbox():
         # Iterate through all detected cars
         for bbox in bbox_list:
             # Draw the box on the image
-            cv2.rectangle(img, bbox[0], bbox[1], (0,255,0), 3)
+            cv2.rectangle(img, bbox[0], bbox[1], (0,255,0), 1)
         # Return the image
         return img
 
