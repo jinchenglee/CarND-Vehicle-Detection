@@ -15,10 +15,8 @@ The goals / steps of this project are the following:
 [image2]: ./output_images/HOG_example.png
 [image3]: ./output_images/sliding_windows.jpg
 [image4]: ./output_images/sliding_window.png
-[image5]: ./examples/bboxes_and_heat.png
-[image6]: ./examples/labels_map.png
-[image7]: ./examples/output_bboxes.png
-[video1]: ./project_video.mp4
+[image5]: ./output_images/bboxes_and_heat.png
+
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/513/view) Points
 
@@ -311,10 +309,11 @@ All these features are easily changable to fine-tune as class variables in __ini
 
 ### Video Implementation
 
-####1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (somewhat wobbly or unstable bounding boxes are ok as long as you are identifying the vehicles most of the time with minimal false positives.)
-[![IMAGE ALT TEXT](https://i.ytimg.com/vi/wYm_yy1XbeU/3.jpg?time=1489422145400)](http://www.youtube.com/watch?v=wYm_yy1XbeU "Lane and vehicle detection")
+####1. A link to your final video output. 
 
+Please click the gif image to see full video on [Youtube](https://www.youtube.com/watch?v=wYm_yy1XbeU). 
 
+[![IMAGE ALT TEXT](./output_images/lane_car_detection.gif)](http://www.youtube.com/watch?v=wYm_yy1XbeU "Lane and vehicle detection")
 
 
 ####2. Describe how (and identify where in your code) you implemented some kind of filter for false positives and some method for combining overlapping bounding boxes.
@@ -323,17 +322,43 @@ I recorded the positions of positive detections in each frame of the video.  Fro
 
 Here's an example result showing the heatmap from a series of frames of video, the result of `scipy.ndimage.measurements.label()` and the bounding boxes then overlaid on the last frame of video:
 
-### Here are six frames and their corresponding heatmaps:
+Here are two example frames, their corresponding heatmaps and `scipy.ndimage.measurements.label()` on the integrated heatmap. 
 
 ![alt text][image5]
 
-### Here is the output of `scipy.ndimage.measurements.label()` on the integrated heatmap from all six frames:
-![alt text][image6]
+Besides, I did thresholding on history of heatmaps for past n (n=3 for current impl.) so that temporal variances can be averaged out. Bbox_pipeline() in video.py:
 
-### Here the resulting bounding boxes are drawn onto the last frame in the series:
-![alt text][image7]
+```python
+    ...
+   # Apply threshold to help remove false positives
+    heat = bbox.apply_threshold(heat,5)
+    ...
+```
 
+bbox class function related to history of heatmp:
 
+```python
+    def apply_threshold(self, heatmap, threshold):
+        # History list full
+        len_heatmap_his = len(self.heatmap_his)
+        if len_heatmap_his>self.len_heatmp_history:
+            # Remove oldest hist data
+            self.heatmap_his.pop(0)
+        # Add latest data into the list
+        self.heatmap_his.append(heatmap)
+
+        # Accumulate over history
+        acc_heatmap = np.zeros_like(heatmap)
+        for cur_heatmap in self.heatmap_his:
+            acc_heatmap += cur_heatmap
+            print(np.max(cur_heatmap), np.max(acc_heatmap))
+
+        # Zero out pixels below the threshold
+        acc_heatmap[acc_heatmap <= threshold] = 0
+        # Return thresholded map
+        return acc_heatmap
+
+```
 
 ---
 
@@ -341,5 +366,8 @@ Here's an example result showing the heatmap from a series of frames of video, t
 
 ####1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+1. Shadow areas on the road and tree shades gave me problems of false positives. I managed to filter those out using color threshold. self.hist_range = (50,256)
+2. The boxes are pretty bumpy (changing in sizes too fast), which means the bounding boxes are not very stable across consecutive frames. Maintaining a box size history and low pass filtering temporally should resolve this. 
+3. A neural-network based classifier should be of more robust that worths a try other than linear SVM implemented. 
+4. Pipeline is implemented sequentially. It is a good experiment trying to implement parallelism utilizing multi-cores of PC or even using CUDA for functions can be done in parallel, say the window searching pieces to further improve performance to achieve real-time. 
 

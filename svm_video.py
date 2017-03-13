@@ -47,6 +47,12 @@ def bbox_pipeline(bbox, img, bbox_list=[]):
     # Alpha blending
     draw_img = cv2.addWeighted(draw_img, 0.9, img, 0.1, 0) 
 
+    # Searching window (big and small)
+    s_win = ((bbox.xstart_s,bbox.ystart_s), (bbox.xstop_s,bbox.ystop_s))
+    b_win = ((bbox.xstart,bbox.ystart), (bbox.xstop,bbox.ystop))
+    cv2.rectangle(draw_img, s_win[0], s_win[1], (0,0,255), 2)
+    cv2.rectangle(draw_img, b_win[0], b_win[1], (0,0,255), 2)
+
     return draw_img
 
 
