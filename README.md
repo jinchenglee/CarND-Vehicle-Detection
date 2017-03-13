@@ -13,8 +13,8 @@ The goals / steps of this project are the following:
 [image0]: ./output_images/lane_car_detection.gif
 [image1]: ./output_images/car_not_car.png
 [image2]: ./output_images/HOG_example.png
-[image3]: ./examples/sliding_windows.jpg
-[image4]: ./examples/sliding_window.jpg
+[image3]: ./output_images/sliding_windows.jpg
+[image4]: ./output_images/sliding_window.png
 [image5]: ./examples/bboxes_and_heat.png
 [image6]: ./examples/labels_map.png
 [image7]: ./examples/output_bboxes.png
@@ -96,11 +96,36 @@ I tried various combinations of parameters and it turns out colorspace 'YCrCb' w
 
 The 'CrCb' channels provide little extra differentiation in HOG detection. Instead, I used color information to extract color histogram and binning information to be attached to HOG features extracted from Y/luminance channel.
 
+All the parameters are easily changable as they are implemented as bbox class variables initialized in __init__() function. 
+
+The tuning showed my choices of parameters ended up with pretty high accuracy (98%) on test datasets. 
+```
+Using spatial binning of: 16 and 10 histogram bins
+Number of training data: 14208 testing data: 3552
+Feature vector length: 2562
+5.45 Seconds to train SVC...
+Test Accuracy of SVC =  0.98
+My SVC predicts:  [ 0.  0.  0.  1.  1.  0.  1.  0.  0.  1.]
+For these 10 labels:  [ 0.  0.  0.  1.  1.  0.  1.  0.  0.  1.]
+0.00142 Seconds to predict 10 labels with SVC
+```
+
 Below are functions defined in bbox.py class.
 
 ```python
     # Class functions
     ...
+     def __init__(self):
+        # Parameters of image spatial and color histogram features 
+        self.spatial_size = 16
+        self.histbin = 10
+        self.hist_range = (50,256)
+        # Parameters of HOG features 
+        self.colorspace = 'RGB2YCrCb' # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
+        self.orient = 9
+        self.pix_per_cell = 8
+        self.cell_per_block = 2
+	...
     def bin_spatial(self, img, size=(32, 32)):
         """
         # Define a function to compute binned color features  
@@ -134,6 +159,7 @@ Below are functions defined in bbox.py class.
         for file in imgs:
             # Read in each one by one
             image = cv2.imread(file)
+            
             # apply color conversion 
             feature_image = img_filter.convert_color(image, conv=self.colorspace)
             # Apply bin_spatial() to get spatial color features
@@ -162,7 +188,7 @@ Below are functions defined in bbox.py class.
 
 I trained a linear SVM using skimage.svm library. 
 
-Before feeding concatenated features into training, I've normalize the values per feature column by using sklearn.preprocessing.StandardScaler thus not a single feature can override others due to its absolute values. 
+Feature concatenation and normalization were discussed in last section. Before feeding concatenated features into training, I've normalize the values per feature column by using sklearn.preprocessing.StandardScaler thus not a single feature can override others due to its absolute values. 
 
 A following up step is to randomize the samples by using sklearn.model_selection.train_test_split() to avoid overfitting in trained model. 
 
@@ -189,29 +215,106 @@ A following up step is to randomize the samples by using sklearn.model_selection
         # Use a linear SVC 
         svc = LinearSVC()
         # Check the training time for the SVC
-        t=time.time()
         svc.fit(X_train, y_train)
-
+```
 
 ###Sliding Window Search
 
 ####1. Describe how (and identify where in your code) you implemented a sliding window search.  How did you decide what scales to search and how much to overlap windows?
 
-I decided to search random window positions at random scales all over the image and came up with this (ok just kidding I didn't actually ;):
+The vehicle detection pipeline can be found in function bbox_pipeline() in video.py. 
+
+I decided to search at three different scales: 1.0, 1.5 and 2.0. The bigger scale value covers closer/bigger image patch of input frame while smaller scale covers farther/smaller ones. 
+
+```python
+    # Do multi-scale searching
+    scale = 1.0
+    bbox_list = bbox.find_cars(img, scale, bbox_list)
+    scale = 1.5
+    bbox_list = bbox.find_cars(img, scale, bbox_list)
+    scale = 2.0
+    bbox_list = bbox.find_cars(img, scale, bbox_list)
+
+```
+
+Also I noticed the sliding window search is a very time-consuming process. To improve the efficiency of my implemention, I shrank the searching area as below two red rectangles in the example image.
+
+The remote cars can only exist in the smaller window, thus smaller scales searching only goes through smaller rectangled area. On the contrary, big scale searches the bigger rectangled area as the closer car can be at any position. 
+
+The searching window and small scale threshold are configurable in bbox class variables in __init__() function.
+
+```python
+        # Only search the lower part of image
+        self.xstart = 0
+        self.xstop = 1280
+        self.ystart = 400
+        self.ystop = 656
+        # Smaller window
+        self.xstart_s = 150
+        self.xstop_s = 1130
+        self.ystart_s = 400
+        self.ystop_s = 520
+        # Small scale threshold (to shrink search area with that scale)
+        self.small_scale_threshold = 1.6
+```
 
 ![alt text][image3]
 
 ####2. Show some examples of test images to demonstrate how your pipeline is working.  What did you do to optimize the performance of your classifier?
 
-Ultimately I searched on two scales using YCrCb 3-channel HOG features plus spatially binned color and histograms of color in the feature vector, which provided a nice result.  Here are some example images:
+Ultimately I searched on three scales using YCrCb colorspac, only 1-channel HOG features on luminance channel plus spatially binned color and histograms of color in the feature vector, which provided a nice result.  Here are some example images:
 
 ![alt text][image4]
+
+Efforts to improve performance (accuracy and stability) of the design:
+1. Big and small searching window for different scale (described in above section).
+2. Only allow predictions above certain confidence level to be counted in as valid prediction to avoid false positive at very beginning. this is mained by code below leverage class variable pred_confidence_threshold. 
+3. Maintain a heatmap history to average out temporal variances so the detection window is more stable. 
+
+All these features are easily changable to fine-tune as class variables in __init__(). 
+
+```python
+    def __init__(self):
+        ...
+        # History heatmap
+        self.heatmap_his = []
+        self.len_heatmp_history = 3
+        # Small scale threshold (to shrink search area with that scale)
+        self.small_scale_threshold = 1.6
+        # Prediction confidence threshold (To reject false positive at very beginning)
+        self.pred_confidence_threshold = 0.9
+        ...
+     def find_cars(self, img, scale, bbox_list=[]):
+        """
+        # A single function that can extract features using hog sub-sampling and make predictions
+        # using pre-trained SVM classifier.
+        """
+		...                       
+                test_prediction = self.svc.predict(test_features)
+                test_confidence = self.svc.decision_function(test_features)
+
+                # Safeguard using prediction confidence to eliminate false positive at very beginning
+                if (test_prediction==1) and (test_confidence>self.pred_confidence_threshold):
+                    if scale<self.small_scale_threshold:
+                        xbox_left = self.xstart_s+np.int(xleft*scale)
+                        ytop_draw = self.ystart_s+np.int(ytop*scale)
+                    else:
+                        xbox_left = self.xstart+np.int(xleft*scale)
+                        ytop_draw = self.ystart+np.int(ytop*scale)
+                    win_draw = np.int(window*scale)
+                    top_left = (xbox_left, ytop_draw)
+                    bottom_right = (xbox_left+win_draw,ytop_draw+win_draw)
+                    bbox_list.append((top_left, bottom_right))
+```
+
 ---
 
 ### Video Implementation
 
 ####1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (somewhat wobbly or unstable bounding boxes are ok as long as you are identifying the vehicles most of the time with minimal false positives.)
-Here's a [link to my video result](./project_video.mp4)
+[![IMAGE ALT TEXT](https://i.ytimg.com/vi/wYm_yy1XbeU/3.jpg?time=1489422145400)](http://www.youtube.com/watch?v=wYm_yy1XbeU "Lane and vehicle detection")
+
+
 
 
 ####2. Describe how (and identify where in your code) you implemented some kind of filter for false positives and some method for combining overlapping bounding boxes.
