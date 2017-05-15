@@ -1,11 +1,12 @@
 ##Vehicle Detection Project##
 ![alt text][image0]
 ---
-The goals / steps of this project are the following:
+Highlights of the project are the following:
 
+* Continuation of project [Advanced Lane Lines] detection 
 * Perform a Histogram of Oriented Gradients (HOG) feature extraction on a labeled training set of images and train a classifier Linear SVM classifier
 * Apply a color transform and append binned color features, as well as histograms of color, to HOG feature vector. 
-* Implement a sliding-window technique and use your trained classifier to search for vehicles in images.
+* Implement a sliding-window technique and use the trained classifier to search for vehicles in images.
 * Run implementation pipeline on a video stream and create a heat map of recurring detections frame by frame to reject outliers and follow detected vehicles.
 * Estimate a bounding box for vehicles detected.
 
@@ -16,15 +17,14 @@ The goals / steps of this project are the following:
 [image3]: ./output_images/sliding_windows.jpg
 [image4]: ./output_images/sliding_window.png
 [image5]: ./output_images/bboxes_and_heat.png
+[Advanced Lane Lines]: https://github.com/jinchenglee/CarND-Advanced-Lane-Lines 
 
-
-## [Rubric](https://review.udacity.com/#!/rubrics/513/view) Points
-
+## Details
 ---
 
 ###Histogram of Oriented Gradients (HOG)
 
-####1. Explain how (and identify where in your code) you extracted HOG features from the training images.
+####1. HOG features extraction from the training images.
 
 The code for this step is contained in files bbox.py, as a class function call get_hog_feature().
 
@@ -88,7 +88,7 @@ Here is an example using the `YCrCb` color space and HOG parameters of `orientat
 ![alt text][image2]
 
 
-####2. Explain how you settled on your final choice of HOG parameters.
+####2. Settled on final choice of HOG parameters.
 
 I tried various combinations of parameters and it turns out colorspace 'YCrCb' with only luminance channel 'Y' fed into hog detection gives best result in the meantime smallest feature width, which saves training and running time. 
 
@@ -182,11 +182,11 @@ Below are functions defined in bbox.py class.
 
 ```
 
-####3. Describe how (and identify where in your code) you trained a classifier using your selected HOG features (and color features if you used them).
+####3. Train a classifier using selected HOG features and color features
 
 I trained a linear SVM using skimage.svm library. 
 
-Feature concatenation and normalization were discussed in last section. Before feeding concatenated features into training, I've normalize the values per feature column by using sklearn.preprocessing.StandardScaler thus not a single feature can override others due to its absolute values. 
+Feature concatenation was discussed in last section. Before feeding concatenated features into training, I've normalize the values per feature column by using sklearn.preprocessing.StandardScaler thus not a single feature can override others due to its absolute values. 
 
 A following up step is to randomize the samples by using sklearn.model_selection.train_test_split() to avoid overfitting in trained model. 
 
@@ -218,7 +218,7 @@ A following up step is to randomize the samples by using sklearn.model_selection
 
 ###Sliding Window Search
 
-####1. Describe how (and identify where in your code) you implemented a sliding window search.  How did you decide what scales to search and how much to overlap windows?
+####1. Implementation of a sliding window search.  Scales to search and overlapped windows
 
 The vehicle detection pipeline can be found in function bbox_pipeline() in video.py. 
 
@@ -258,15 +258,15 @@ The searching window and small scale threshold are configurable in bbox class va
 
 ![alt text][image3]
 
-####2. Show some examples of test images to demonstrate how your pipeline is working.  What did you do to optimize the performance of your classifier?
+####2. Examples of working pipeline
 
-Ultimately I searched on three scales using YCrCb colorspac, only 1-channel HOG features on luminance channel plus spatially binned color and histograms of color in the feature vector, which provided a nice result.  Here are some example images:
+Ultimately I searched on three scales using YCrCb colorspace, only 1-channel HOG features on luminance channel plus spatially binned color and histograms of color in the feature vector, which provided a nice result.  Here are some example images:
 
 ![alt text][image4]
 
 Efforts to improve performance (accuracy and stability) of the design:
 1. Big and small searching window for different scale (described in above section).
-2. Only allow predictions above certain confidence level to be counted in as valid prediction to avoid false positive at very beginning. this is mained by code below leverage class variable pred_confidence_threshold. 
+2. Only allow predictions above certain confidence level to be counted in as valid prediction to avoid false positive at very beginning. this is achieved by code below leverage class variable pred_confidence_threshold. 
 3. Maintain a heatmap history to average out temporal variances so the detection window is more stable. 
 
 All these features are easily changable to fine-tune as class variables in __init__(). 
@@ -309,14 +309,14 @@ All these features are easily changable to fine-tune as class variables in __ini
 
 ### Video Implementation
 
-####1. A link to your final video output. 
+####1. A link to final video output. 
 
 Please click the gif image to see full video on [Youtube](https://www.youtube.com/watch?v=wYm_yy1XbeU). 
 
 [![IMAGE ALT TEXT](./output_images/lane_car_detection.gif)](http://www.youtube.com/watch?v=wYm_yy1XbeU "Lane and vehicle detection")
 
 
-####2. Describe how (and identify where in your code) you implemented some kind of filter for false positives and some method for combining overlapping bounding boxes.
+####2. Filtering for false positives and method for combining overlapping bounding boxes.
 
 I recorded the positions of positive detections in each frame of the video.  From the positive detections I created a heatmap and then thresholded that map to identify vehicle positions.  I then used `scipy.ndimage.measurements.label()` to identify individual blobs in the heatmap.  I then assumed each blob corresponded to a vehicle.  I constructed bounding boxes to cover the area of each blob detected.  
 
@@ -364,10 +364,10 @@ bbox class function related to history of heatmp:
 
 ###Discussion
 
-####1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
+#### Problems / issues and TODO list
 
-1. Shadow areas on the road and tree shades gave me problems of false positives. I managed to filter those out using color threshold. self.hist_range = (50,256)
+1. Shadow areas on the road and tree shades gave me problems of false positives. I managed to filter those out using color threshold. self.hist_range = (50,256) but this is very training data specific. 
 2. The boxes are pretty bumpy (changing in sizes too fast), which means the bounding boxes are not very stable across consecutive frames. Maintaining a box size history and low pass filtering temporally should resolve this. 
-3. A neural-network based classifier should be of more robust that worths a try other than linear SVM implemented. 
+3. A neural-network based vehicle classifier should be of more robust that worths a try other than linear SVM implemented. Same for lane detection.
 4. Pipeline is implemented sequentially. It is a good experiment trying to implement parallelism utilizing multi-cores of PC or even using CUDA for functions can be done in parallel, say the window searching pieces to further improve performance to achieve real-time. 
 
